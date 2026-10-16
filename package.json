@@ -1,0 +1,21 @@
+{
+  "name": "minecraft-companions",
+  "private": true,
+  "scripts": {
+    "build:claude-helper": "node scripts/build-claude-helper.mjs",
+    "test": "node --test --test-timeout=30000 bridge/*.test.mjs bridge/claude/*.test.mjs bridge/dot/*.test.mjs",
+    "package": "node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "29.1.1"
+  },
+  "dependencies": {
+    "proper-lockfile": "^4.1.2"
+  },
+  "version": "0.10.0",
+  "license": "MIT",
+  "description": "Talk to your existing Codex, Claude Code, and ChatGPT Dot conversations in Minecraft.",
+  "engines": {
+    "node": ">=24"
+  }
+}

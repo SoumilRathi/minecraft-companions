@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "agentic_companion",
+  "version": "${version}",
+  "name": "Minecraft Companions",
+  "description": "Talk to your existing Codex, Claude Code, and ChatGPT Dot conversations in Minecraft.",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.agentic.companion.CompanionClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  },
+  "license": "MIT",
+  "contact": {
+    "sources": "https://github.com/SoumilRathi/minecraft-companions",
+    "issues": "https://github.com/SoumilRathi/minecraft-companions/issues"
+  }
+}

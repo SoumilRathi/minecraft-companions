@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Minecraft Companions: Dot",
+  "version": "0.10.0",
+  "description": "Use your Dot conversation through a character in Minecraft.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8QAcg4Q7mNLnwh6YMC89YBvfzsCHQtggdTz2sGZza2HA+ZktomuuCMBksPezU93ZZlYwioZF+tExIF3GEGb2VxnUhQe3SLUDKq82GPIaHJf00z4YP6DCvvJmBFMIpX9mZRvYY2rC+VC/Svi/Ye0qlYSKECbZzfLSXVbWjs0+IXNynH6/BRtlmpqLMRa2JPIxJ/i7GpQpFBpQSZKfxDbp3MQj0Oe9+W1Kj8ake5VKigBL+yFaLr0XtOsJKgSpRncW9my8/dqY47m2GXldUnVonW6VslRruNJITCagvfffzzN/OlW0YXJLZOx+qJtSRg5u0twy2eKST7E5Cw3zhfIyOQIDAQAB",
+  "permissions": [
+    "nativeMessaging",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/dots/*"
+      ],
+      "js": [
+        "config.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

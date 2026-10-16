@@ -1,0 +1,55 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+version = project.mod_version
+group = 'dev.agentic'
+base { archivesName = 'minecraft-companions' }
+repositories { mavenCentral() }
+loom {
+    splitEnvironmentSourceSets()
+    mods {
+        'agentic_companion' {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand 'version': project.version }
+}
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = 'UTF-8'
+}
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+// These existing checks have main methods and require no test framework.
+sourceSets.test {
+    java.exclude '**/ChatSendTest.java'
+    compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
+    runtimeClasspath += sourceSets.client.output + sourceSets.client.runtimeClasspath
+}
+tasks.named('test') { enabled = false }
+def checks = ['CompanionBehaviorTest', 'PlacementStoreTest', 'ChatStateStoreTest', 'JournalMarkdownTest', 'MinecraftTextApiTest']
+checks.each { name ->
+    tasks.register("verify${name}", JavaExec) {
+        dependsOn testClasses
+        classpath = sourceSets.test.runtimeClasspath
+        mainClass = "dev.agentic.companion.${name}"
+    }
+}
+tasks.register('verifyChatSend', Exec) {
+    environment 'JAVA_HOME', System.getProperty('java.home')
+    doFirst { environment 'GSON_JAR', configurations.clientCompileClasspath.files.find { it.name.startsWith('gson-') }.absolutePath }
+    commandLine 'node', '../scripts/test-chat-send.mjs'
+}
+tasks.named('check') { dependsOn checks.collect { "verify${it}" }, 'verifyChatSend' }
