@@ -77,8 +77,11 @@ abstract class JournalScreen extends Screen {
     protected boolean scrollLocal(double x, double y, double horizontal, double vertical) { return super.mouseScrolled(x, y, horizontal, vertical); }
     @Override public boolean isPauseScreen() { return true; }
 
-    protected float textScale(float requested) { return Math.max(1, (float)Math.ceil(pixelsPerUnit * requested - .0001f)) / pixelsPerUnit; }
-    protected float bodyTextScale() { return Math.max(1, (float)Math.ceil(pixelsPerUnit - .0001f) + JournalPreferences.index - 1) / pixelsPerUnit; }
+    // Match the README's three framebuffer pixels per bitmap pixel at Regular size.
+    // Resolve sizes once, then use the same scale for measuring and drawing.
+    protected float textScale(float requested) { return Math.max(1, Math.round(3f * requested)) / pixelsPerUnit; }
+    protected float bodyTextScale() { return (2f + JournalPreferences.index) / pixelsPerUnit; }
+    protected float snapTextScale(float resolved) { return Math.max(1, Math.round(resolved * pixelsPerUnit)) / pixelsPerUnit; }
     private float pixelX(float x) { return (Math.round((originX + x * scale) * guiPixels) / guiPixels - originX) / scale; }
     private float pixelY(float y) { return (Math.round((originY + y * scale) * guiPixels) / guiPixels - originY) / scale; }
     protected void textAt(GuiGraphicsExtractor g, FormattedCharSequence text, float x, float y, float size, int color) {
@@ -118,9 +121,14 @@ abstract class JournalScreen extends Screen {
     protected JournalButton button(String text, int x, int y, int w, int h, boolean primary, Runnable action) {
         return addRenderableWidget(new JournalButton(text, x, y, w, h, primary, action));
     }
+    protected JournalButton closeButton(int x, int y) {
+        var button = button("Close", x, y, 28, 28, false, this::onClose);
+        button.closeIcon = true;
+        return button;
+    }
     protected final class JournalButton extends Button {
         private final boolean primary;
-        boolean leftAligned, dropdown;
+        boolean leftAligned, dropdown, closeIcon;
         JournalButton(String text, int x, int y, int w, int h, boolean primary, Runnable action) {
             super(x, y, w, h, Component.literal(text), b -> action.run(), DEFAULT_NARRATION);
             this.primary = primary;
@@ -131,6 +139,14 @@ abstract class JournalScreen extends Screen {
             g.fill(getX(), getY(), getRight(), getBottom(), bg);
             g.outline(getX(), getY(), getWidth(), getHeight(), hover ? GOLD : primary && active ? 0xFF264B44 : 0x507E694A);
             int color = !active ? MUTED : primary ? PAPER : INK;
+            if (closeIcon) {
+                int cx = getX() + getWidth() / 2, cy = getY() + getHeight() / 2;
+                for (int i = -5; i <= 5; i++) {
+                    g.fill(cx + i - 1, cy + i - 1, cx + i + 1, cy + i + 1, color);
+                    g.fill(cx + i - 1, cy - i - 1, cx + i + 1, cy - i + 1, color);
+                }
+                return;
+            }
             float size = textScale(1);
             var message = Component.literal(font.plainSubstrByWidth(getMessage().getString(), Math.max(1,(int)((getWidth()-(dropdown?38:12))/size))));
             textAt(g, message.getVisualOrderText(), leftAligned ? getX()+8 : getX() + (getWidth() - font.width(message)*size) / 2,

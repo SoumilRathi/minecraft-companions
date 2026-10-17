@@ -182,9 +182,9 @@ public final class CompanionScreen extends JournalScreen {
         }
         return result;
     }
-    private void text(Component text, float x, float y, float size, int color) { ink.add(new Ink(text.getVisualOrderText(), x, y, textScale(size), color)); }
+    private void text(Component text, float x, float y, float size, int color) { ink.add(new Ink(text.getVisualOrderText(), x, y, size, color)); }
     private float wrap(Component text, float x, float y, float width, float size, int color) {
-        size = textScale(size);
+        size = snapTextScale(size);
         float start = y;
         for (var line : font.split(text, Math.max(8, (int)(width / size)))) {
             ink.add(new Ink(line, x, y, size, color)); y += 13 * size;
@@ -205,7 +205,7 @@ public final class CompanionScreen extends JournalScreen {
             messageStarts.put(BridgeClient.string(message,"id",""),cursor);
             boolean mine = role.equals("You");
             boxes.add(new Box(0, cursor, 3, 10, mine ? 0xFF9C793F : GREEN));
-            text(Component.literal(mine ? "YOU" : kind.label.toUpperCase(java.util.Locale.ROOT)).withStyle(Style.EMPTY.withBold(true)), 13, cursor + 1, .9f, mine ? MUTED : GREEN);
+            text(Component.literal(mine ? "YOU" : kind.label.toUpperCase(java.util.Locale.ROOT)).withStyle(Style.EMPTY.withBold(true)), 13, cursor + 1, textScale(.9f), mine ? MUTED : GREEN);
             String delivery=BridgeClient.string(message,"outgoingStatus","");
             if(delivery.equals("pending")||delivery.equals("unknown"))sendingMarks.add(cursor+5);
             copies.add(new Copy(cursor, raw)); cursor += 25;
@@ -228,7 +228,7 @@ public final class CompanionScreen extends JournalScreen {
                     }
                     case "code" -> {
                         float start = cursor;
-                        text(Component.literal(block.detail().isEmpty() ? "CODE" : block.detail()), 13, cursor + 10, .85f, 0xFFD6C19C);
+                        text(Component.literal(block.detail().isEmpty() ? "CODE" : block.detail()), 13, cursor + 10, textScale(.85f), 0xFFD6C19C);
                         copies.add(new Copy(cursor + 10, block.text())); cursor += 31;
                         for (String line : block.text().split("\n", -1)) cursor += wrap(Component.literal(line.replace("\t", "    ")), 13, cursor, PAGE_WIDTH - 26, size, 0xFFECE3CF);
                         cursor += 12; boxes.add(new Box(0, start, PAGE_WIDTH, cursor - start, 0xFF343B35));
@@ -253,12 +253,12 @@ public final class CompanionScreen extends JournalScreen {
             }
             if(delivery.equals("failed")) {
                 cursor+=8;failedActions.add(cursor);
-                text(Component.literal("Not sent"),0,cursor,.9f,0xFF985D48);
-                text(Component.literal("Retry").withStyle(Style.EMPTY.withUnderlined(true)),90,cursor,.9f,bridge.canRetry()?GREEN:MUTED);
-                text(Component.literal("Remove").withStyle(Style.EMPTY.withUnderlined(true)),150,cursor,.9f,MUTED);
+                text(Component.literal("Not sent"),0,cursor,textScale(.9f),0xFF985D48);
+                text(Component.literal("Retry").withStyle(Style.EMPTY.withUnderlined(true)),90,cursor,textScale(.9f),bridge.canRetry()?GREEN:MUTED);
+                text(Component.literal("Remove").withStyle(Style.EMPTY.withUnderlined(true)),150,cursor,textScale(.9f),MUTED);
                 cursor+=16;
             } else if(delivery.equals("unknown")) {
-                cursor+=8;text(Component.literal("Sending interrupted. Reconnecting…"),0,cursor,.9f,MUTED);cursor+=16;
+                cursor+=8;text(Component.literal("Sending interrupted. Reconnecting…"),0,cursor,textScale(.9f),MUTED);cursor+=16;
             }
             messageEnds.put(BridgeClient.string(message, "id", ""), cursor);
             cursor += 20; boxes.add(new Box(0, cursor, PAGE_WIDTH, 1, 0x30816C4D)); cursor += 24;
@@ -273,14 +273,23 @@ public final class CompanionScreen extends JournalScreen {
         }
     }
 
+    private String connectionMessage() {
+        if (kind == CompanionKind.CODEX && bridge.connectionPhase().equals("needsDesktop")) {
+            String title = BridgeClient.string(bridge.state, "title", "");
+            return title.isBlank() ? "Open this chat in the Codex app to connect."
+                : "Open ‘" + title + "’ in the Codex app to connect.";
+        }
+        return bridge.connection;
+    }
+
     @Override protected void drawJournal(GuiGraphicsExtractor g, int mx, int my, float delta) {
         layout(); restoreReading(); conversationFrame(g,kind);
         conversationHeading(g,kind,kind.label,kind==CompanionKind.DOT?"":BridgeClient.string(bridge.state,"project",""));
         if(kind==CompanionKind.DOT)label(g,"Your Dot conversation",148,104,MUTED);
-        String status = !bridge.connected ? switch(BridgeClient.string(bridge.state,"connectionPhase","connecting")) {
+        String status = !bridge.connected ? switch(bridge.connectionPhase()) {
             case "loading" -> "Loading history...";
             case "needsBrowser" -> "Open Dot in your browser";
-            case "needsDesktop" -> "Open in "+kind.label;
+            case "needsDesktop" -> "Open chat in "+kind.label;
             case "needsRemoteControl" -> "Enable Remote Control";
             case "needsLogin" -> "Claude sign-in needed";
             case "error" -> "Connection issue";
@@ -311,7 +320,14 @@ public final class CompanionScreen extends JournalScreen {
                 label(g, "Copy", RIGHT - 40, (int)y, GREEN);
             }
         }
-        if (ink.isEmpty()) { label(g, "The pages are waiting for your conversation.", LEFT, TOP + 28, MUTED); }
+        if (ink.isEmpty()) {
+            float size = textScale(1), y = TOP + 28;
+            String message = bridge.connected ? "No messages yet." : connectionMessage();
+            for (var line : font.split(Component.literal(message), Math.max(1, (int)(PAGE_WIDTH / size)))) {
+                textAt(g, line, LEFT, y, size, MUTED);
+                y += 13 * size;
+            }
+        }
         g.disableScissor();
         String reply = bridge.signals.tracker.latestId();
         Float end = messageEnds.get(reply);
@@ -326,7 +342,7 @@ public final class CompanionScreen extends JournalScreen {
         String notice = "";
         if (System.currentTimeMillis() < flashUntil) notice = flash;
         else if (bridge.problem) notice = bridge.notice;
-        else if (!bridge.connected) notice = bridge.connection;
+        else if (!bridge.connected) { if (!ink.isEmpty()) notice = connectionMessage(); }
         else if (bridge.flag("needsAttention")) notice = "Continue the requested action in the "+kind.label+" app.";
         label(g, font.plainSubstrByWidth(notice, (int)(PAGE_WIDTH/textScale(1))), LEFT, 496, MUTED);
         g.fill(88, 518, 903, 580, 0x50FFF8E7); g.outline(88, 518, 815, 62, 0x60907A55);

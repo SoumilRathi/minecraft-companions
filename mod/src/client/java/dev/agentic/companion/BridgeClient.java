@@ -42,7 +42,7 @@ final class BridgeClient {
     boolean problem;
     String draft = "";
     OutgoingMessage outgoing;
-    boolean polling, sending, connected, switching;
+    boolean polling, sending, connected, switching, bridgeAvailable;
     private long selectionGeneration;
     private long nextPoll;
     private long deliveryStarted;
@@ -65,13 +65,14 @@ final class BridgeClient {
                 connected=false; problem=true; notice="Could not read that chat's saved draft. Its files have been preserved."; return false;
             }
         }
-        state=response; connected=flag("connected"); connection=string(state,"status","Connecting...");
+        state=response; bridgeAvailable=true; connected=flag("connected"); connection=string(state,"status","Connecting...");
         signals.observe(); return true;
     }
     static String string(JsonObject object, String key, String fallback) {
         return object.has(key) && !object.get(key).isJsonNull() ? object.get(key).getAsString() : fallback;
     }
     boolean flag(String key) { return state.has(key) && state.get(key).getAsBoolean(); }
+    String connectionPhase() { return bridgeAvailable ? string(state,"connectionPhase","connecting") : "connecting"; }
     void tick() {
         if (polling || switching || System.currentTimeMillis() < nextPoll) return;
         long generation=selectionGeneration;
@@ -82,6 +83,7 @@ final class BridgeClient {
             polling = false;
             if (generation != selectionGeneration) { nextPoll=0; tick(); return; }
             if (error != null) {
+                bridgeAvailable = false;
                 connected = false;
                 connection = BridgeLauncher.ensureStarted();
                 signals.observe();

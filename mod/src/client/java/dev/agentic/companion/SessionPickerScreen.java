@@ -32,7 +32,7 @@ final class SessionPickerScreen extends JournalScreen {
         search.setValue(query);
         search.setResponder(value->{query=value; generation++; searchAt=System.currentTimeMillis()+300;});
         button("Refresh",799,148,88,27,false,()->load(false,true));
-        button("x",892,62,22,22,false,this::onClose);
+        closeButton(886,59);
         for(int i=0;i<7;i++) rows.add(addRenderableWidget(new SessionRow(i)));
         more=button("Load more",762,578,125,24,false,()->load(true,false));
         setInitialFocus(search);
@@ -100,7 +100,17 @@ final class SessionPickerScreen extends JournalScreen {
         if(sessions.isEmpty()) label(g,loading?"Gathering your desktop conversations...":error.isEmpty()?"No matching conversations.":"",105,226,MUTED);
         String footer=bridge.switching?"Opening the selected conversation...":loading&&sessions.isEmpty()?"Loading...":error.isEmpty()
             ? (sessions.isEmpty()?"":(offset+1)+"-"+Math.min(offset+7,sessions.size())+" of "+total+" conversations"+(truncated?" (list limited)":"")) : error;
-        for(var line:font.split(Component.literal(footer),640)) {g.text(font,line,102,585,MUTED,false);break;}
+        for(var line:font.split(Component.literal(footer),(int)(640/textScale(1)))) {textAt(g,line,102,585,textScale(1),MUTED);break;}
+    }
+    private void rowText(GuiGraphicsExtractor g,String text,float x,float y,int width,int color) {
+        float size=textScale(1);
+        int available=Math.max(0,(int)Math.floor(width/size));
+        if(font.width(text)>available) {
+            String suffix="...";
+            text=available<font.width(suffix)?font.plainSubstrByWidth(suffix,available)
+                :font.plainSubstrByWidth(text,available-font.width(suffix))+suffix;
+        }
+        textAt(g,Component.literal(text).getVisualOrderText(),x,y,size,color);
     }
     private final class SessionRow extends Button {
         private final int row;
@@ -123,11 +133,13 @@ final class SessionPickerScreen extends JournalScreen {
             }
             String cwd=displayFolder(kind,BridgeClient.string(session,"cwd","")), home=System.getProperty("user.home");
             if(cwd.startsWith(home+"/"))cwd="~"+cwd.substring(home.length());
-            int titleWidth=getWidth()-36-font.width(status);
-            int titleY=getY()+(cwd.isBlank()?(getHeight()-8)/2:8);
-            label(g,font.plainSubstrByWidth(BridgeClient.string(session,"title","Conversation"),titleWidth),getX()+12,titleY,INK);
-            label(g,status,getRight()-font.width(status)-12,titleY,GREEN);
-            if(!cwd.isBlank())label(g,font.plainSubstrByWidth(cwd,getWidth()-24),getX()+12,getY()+26,MUTED);
+            float size=textScale(1);
+            int statusWidth=(int)Math.ceil(font.width(status)*size);
+            int titleWidth=getWidth()-24-(status.isEmpty()?0:statusWidth+18);
+            float titleY=getY()+(cwd.isBlank()?(getHeight()-font.lineHeight*size)/2:7);
+            rowText(g,BridgeClient.string(session,"title","Conversation"),getX()+12,titleY,titleWidth,INK);
+            rowText(g,status,getRight()-12-statusWidth,titleY,statusWidth,GREEN);
+            if(!cwd.isBlank())rowText(g,cwd,getX()+12,getY()+26,getWidth()-24,MUTED);
         }
     }
 }

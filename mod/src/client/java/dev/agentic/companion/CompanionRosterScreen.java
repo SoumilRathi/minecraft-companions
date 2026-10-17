@@ -15,7 +15,7 @@ public final class CompanionRosterScreen extends JournalScreen {
                 if(result.success())onClose();
             });row++;
         }
-        button("x",696,179,20,20,false,this::onClose);
+        closeButton(679, 184);
     }
     @Override protected void drawJournal(GuiGraphicsExtractor g,int mx,int my,float delta) {
         int extra=(CompanionKind.enabledValues().length-3)*ROW_STEP;

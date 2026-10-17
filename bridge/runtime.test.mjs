@@ -138,7 +138,7 @@ test('desktop app restart discovers its new owner and restores the same history 
   assert.equal(requests.some(r=>r.includes('start-turn')||r.includes('resume')),false);
 });
 
-async function loadingHost(t,onFollow,{ownerAvailable=()=>true,...options}={}) {
+async function loadingHost(t,onFollow,{ownerAvailable=()=>true,discoverySilent=()=>false,...options}={}) {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'agentic-loading-')),socketPath=path.join(dir,'ipc.sock'),threadId=randomUUID();
   const sockets=new Set(),requests=[],events=[];let follows=0;
   const snapshot=(send,resumeState='resumed',revision=1)=>send({type:'broadcast',sourceClientId:'owner',version:11,
@@ -155,6 +155,7 @@ async function loadingHost(t,onFollow,{ownerAvailable=()=>true,...options}={}) {
         const n=buffer.readUInt32LE(),m=JSON.parse(buffer.subarray(4,n+4));buffer=buffer.subarray(n+4);
         if(m.type==='request') {
           requests.push(m.method);
+          if(m.method==='thread-owner-discovery'&&discoverySilent())continue;
           if(m.method==='thread-owner-discovery'&&!ownerAvailable())send({type:'response',requestId:m.requestId,resultType:'error',error:'no-client-found'});
           else send({type:'response',requestId:m.requestId,resultType:'success',handledByClientId:'owner',result:m.method==='initialize'?{clientId:'game'}:{}});
         }
@@ -199,10 +200,38 @@ test('a stalled history retries automatically and an unavailable owner has a dis
   const f=await loadingHost(t,({number,snapshot})=>{if(number>1)snapshot();},
     {ownerAvailable:()=>available,snapshotTimeoutMs:60,reconnectDelayMs:20});
   await f.desktop.connect();await waitFor(()=>f.desktop.view().connectionPhase==='needsDesktop');
-  assert.match(f.desktop.view().status,/Open this chat in Codex desktop/);
+  assert.equal(f.desktop.view().status,'Open this chat in the Codex app.');
   available=true;await waitFor(()=>f.desktop.ready);
   assert.equal(f.follows(),2);assert.equal(f.events.some(e=>e.reason==='history-timeout'),true);
   assert.equal(f.requests.some(m=>m.includes('start-turn')||m.includes('resume')),false);
+});
+
+test('unanswered chat discovery asks to open the chat, stays stable during retries, and connects when it opens',async t=>{
+  let unopened=true;
+  const f=await loadingHost(t,({snapshot})=>snapshot(),
+    {discoverySilent:()=>unopened,discoveryTimeoutMs:60,reconnectDelayMs:20});
+  await f.desktop.connect();
+  assert.equal(f.desktop.view().connectionPhase,'needsDesktop');
+  assert.equal(f.desktop.view().status,'Open this chat in the Codex app.');
+  assert.equal(f.desktop.view().canSend,false);
+  await waitFor(()=>f.requests.filter(m=>m==='thread-owner-discovery').length>=2);
+  assert.equal(f.desktop.view().connectionPhase,'needsDesktop');
+  unopened=false;
+  await waitFor(()=>f.desktop.ready);
+  assert.equal(f.desktop.view().connectionPhase,'ready');
+  assert.equal(f.desktop.view().messages[0].text,'Historical answer');
+  assert.equal(f.desktop.view().canSend,true);
+  assert.equal(f.requests.some(m=>m.includes('start-turn')||m.includes('resume')),false);
+});
+
+test('a closed desktop app keeps its connection message instead of asking for a particular chat',async t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'agentic-closed-desktop-'));
+  const desktop=new Desktop(randomUUID(),path.join(dir,'missing.sock'),{diagnostic:()=>{}});
+  t.after(()=>{desktop.close();fs.rmSync(dir,{recursive:true,force:true});});
+  await desktop.connect();
+  assert.equal(desktop.view().connectionPhase,'reconnecting');
+  assert.equal(desktop.view().status,'Waiting for Codex desktop...');
+  assert.equal(desktop.view().canSend,false);
 });
 
 test('Dot-only startup needs no Codex chat and setup can stop its connection',async t=>{

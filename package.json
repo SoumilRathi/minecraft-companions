@@ -12,7 +12,7 @@
   "dependencies": {
     "proper-lockfile": "^4.1.2"
   },
-  "version": "0.10.0",
+  "version": "0.10.1",
   "license": "MIT",
   "description": "Talk to your existing Codex, Claude Code, and ChatGPT Dot conversations in Minecraft.",
   "engines": {

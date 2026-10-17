@@ -27,7 +27,7 @@ Use any launcher that supports this Minecraft and Fabric version. Run setup on e
 ## Install
 
 1. Start Minecraft with Fabric once, then quit it.
-2. Download **minecraft-companions-0.10.0-macos-arm64.zip** from [Releases](https://github.com/SoumilRathi/minecraft-companions/releases) and unzip it.
+2. Download **minecraft-companions-0.10.1-macos-arm64.zip** from [Releases](https://github.com/SoumilRathi/minecraft-companions/releases) and unzip it.
 3. Open Terminal in the extracted folder and run:
 
    ```sh

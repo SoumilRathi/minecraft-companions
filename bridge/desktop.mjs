@@ -141,9 +141,11 @@ export class Desktop extends EventEmitter {
       this.follow();this.waitForSnapshot();this.emit('change');
     } catch(error) {
       if(this.closed||this.socket?.destroyed)return;
-      const noOwner=['no-client-found','no-handler-for-request'].includes(error.message);
+      // The desktop can answer initialization but leave discovery unanswered
+      // until this chat is opened. Retrying is useful; an endless spinner isn't.
+      const noOwner=['no-client-found','no-handler-for-request'].includes(error.message) || error.code==='DESKTOP_RESPONSE_TIMEOUT';
       this.phase=noOwner?'needsDesktop':'connecting';
-      this.status=noOwner?'Open this chat in Codex desktop to connect.':'Connecting to Codex desktop...';
+      this.status=noOwner?'Open this chat in the Codex app.':'Connecting to Codex desktop...';
       this.emit('change');
       this.discoveryTimer=setTimeout(()=>this.discover(),this.retryDelay??this.reconnectDelayMs);
       this.retryDelay=Math.min(5000,(this.retryDelay??this.reconnectDelayMs)*2);
@@ -179,7 +181,7 @@ export class Desktop extends EventEmitter {
   request(method, params, targetClientId, timeoutMs = 10000) {
     return new Promise((resolve, reject) => {
       const requestId = randomUUID();
-      const timer = setTimeout(() => { this.pending.delete(requestId); reject(Error('Desktop response timed out')); }, timeoutMs);
+      const timer = setTimeout(() => { this.pending.delete(requestId); reject(Object.assign(Error('Desktop response timed out'),{code:'DESKTOP_RESPONSE_TIMEOUT'})); }, timeoutMs);
       this.pending.set(requestId, { resolve, reject, timer, method });
       try { this.write({ type: 'request', requestId, sourceClientId: this.clientId,
         version: versions[method], method, params, targetClientId, timeoutMs: Math.max(1,timeoutMs-1000) }); }
@@ -243,7 +245,7 @@ export class Desktop extends EventEmitter {
         this.everConnected=true; if(!wasReady)this.report('ready');
       } else if(this.state?.resumeState==='needs_resume') {
         clearTimeout(this.snapshotTimer); this.snapshotTimer=null; this.phase='needsDesktop';
-        this.status='Open this chat in Codex desktop to connect.';
+        this.status='Open this chat in the Codex app.';
       } else {
         this.phase='loading'; this.status='Loading conversation history...';
         if(!this.snapshotTimer)this.waitForSnapshot();
